@@ -32,7 +32,6 @@ import {
   Boxes,
   Wallet,
   ArrowRight,
-  Database,
   ShieldCheck,
   LogIn,
 } from "lucide-react";
@@ -45,7 +44,6 @@ export const metadata: Metadata = {
 
 const TOC: TocItem[] = [
   { id: "gioi-thieu", label: "Giới thiệu" },
-  { id: "cong-nghe", label: "Công nghệ" },
   { id: "vai-tro", label: "Vai trò & phân quyền" },
   { id: "luong", label: "Luồng nghiệp vụ" },
   { id: "tinh-nang", label: "Tính năng chính" },
@@ -157,31 +155,6 @@ export default function DocsPage() {
                     <p className="text-xs text-muted-foreground">{f.desc}</p>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
-          </Section>
-
-          {/* Công nghệ */}
-          <Section id="cong-nghe" title="Công nghệ">
-            <div className="grid gap-3 sm:grid-cols-2">
-              {[
-                ["Next.js 16 (App Router, TypeScript)", "Khung ứng dụng + Server Actions"],
-                ["shadcn/ui + Tailwind CSS v4", "Thư viện giao diện, font Manrope"],
-                ["Neon (Postgres serverless)", "Cơ sở dữ liệu"],
-                ["Drizzle ORM", "Schema, migration, truy vấn"],
-                ["Better Auth", "Đăng nhập + phân quyền 4 vai trò"],
-                ["Recharts", "Biểu đồ thống kê"],
-              ].map(([t, d]) => (
-                <div
-                  key={t}
-                  className="flex items-start gap-3 rounded-lg border bg-card p-3"
-                >
-                  <Database className="mt-0.5 size-4 shrink-0 text-primary" />
-                  <div>
-                    <div className="text-sm font-medium">{t}</div>
-                    <div className="text-xs text-muted-foreground">{d}</div>
-                  </div>
-                </div>
               ))}
             </div>
           </Section>
