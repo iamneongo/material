@@ -3,8 +3,33 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 
+// URL gốc: ưu tiên env, nếu không có thì tự suy ra từ biến Vercel cung cấp
+// (production URL cố định, hoặc URL của deployment hiện tại — kể cả preview).
+function resolveBaseURL(): string | undefined {
+  if (process.env.BETTER_AUTH_URL) return process.env.BETTER_AUTH_URL;
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL)
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return undefined; // dev: Better Auth mặc định http://localhost:3000
+}
+
+// Các origin được tin cậy (kiểm tra CSRF khi đăng nhập/đăng ký).
+const trustedOrigins = Array.from(
+  new Set(
+    [
+      process.env.BETTER_AUTH_URL,
+      process.env.NEXT_PUBLIC_APP_URL,
+      process.env.VERCEL_PROJECT_PRODUCTION_URL &&
+        `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`,
+      process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`,
+      "http://localhost:3000",
+    ].filter(Boolean) as string[]
+  )
+);
+
 export const auth = betterAuth({
-  baseURL: process.env.BETTER_AUTH_URL,
+  baseURL: resolveBaseURL(),
+  trustedOrigins,
   secret: process.env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, {
     provider: "pg",
