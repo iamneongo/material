@@ -28,11 +28,16 @@ export async function projectList(_request: Request, response: Response) { respo
 export async function projectCreate(request: Request, response: Response) { await catalog.createProject(me(request), request.body); response.status(201).json({ ok: true }); }
 export async function projectUpdate(request: Request, response: Response) { await catalog.updateProject(me(request), idParam(request), request.body); response.json({ ok: true }); }
 export async function projectDelete(request: Request, response: Response) { await catalog.deleteProject(me(request), idParam(request)); response.json({ ok: true }); }
+export async function projectSummary(request: Request, response: Response) { response.json(await reports.getProjectSummary(idParam(request))); }
 export async function materialList(_request: Request, response: Response) { response.json(await catalog.listMaterials()); }
 export async function materialCreate(request: Request, response: Response) { await catalog.createMaterial(me(request), request.body); response.status(201).json({ ok: true }); }
 export async function materialUpdate(request: Request, response: Response) { await catalog.updateMaterial(me(request), idParam(request), request.body); response.json({ ok: true }); }
 export async function materialDelete(request: Request, response: Response) { await catalog.deleteMaterial(me(request), idParam(request)); response.json({ ok: true }); }
 export async function supplierList(_request: Request, response: Response) { response.json(await catalog.listSuppliers()); }
+export async function supplierContactList(_request: Request, response: Response) { response.json(await catalog.listSupplierContacts()); }
+export async function supplierContactCreate(request: Request, response: Response) { await catalog.createSupplierContact(me(request), request.body); response.status(201).json({ ok: true }); }
+export async function supplierContactUpdate(request: Request, response: Response) { await catalog.updateSupplierContact(me(request), idParam(request), request.body); response.json({ ok: true }); }
+export async function supplierContactDelete(request: Request, response: Response) { await catalog.deleteSupplierContact(me(request), idParam(request)); response.json({ ok: true }); }
 export async function budgetList(request: Request, response: Response) { response.json(await catalog.listBudgets(Number(request.query.projectId))); }
 export async function budgetUpsert(request: Request, response: Response) { await catalog.upsertBudget(me(request), request.body); response.json({ ok: true }); }
 export async function budgetDelete(request: Request, response: Response) { await catalog.deleteBudget(me(request), idParam(request)); response.json({ ok: true }); }

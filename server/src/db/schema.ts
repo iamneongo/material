@@ -55,8 +55,19 @@ export const verification = pgTable("verification", {
 export const projects = pgTable("projects", {
   id: serial("id").primaryKey(), code: text("code").notNull().unique(), name: text("name").notNull(),
   address: text("address"), status: projectStatusEnum("status").notNull().default("active"),
+  defaultSupplierContactId: integer("default_supplier_contact_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const supplierContacts = pgTable("supplier_contacts", {
+  id: serial("id").primaryKey(), name: text("name").notNull(), phone: text("phone").notNull().unique(),
+  createdAt: timestamp("created_at").notNull().defaultNow(), updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const projectSupplierContacts = pgTable("project_supplier_contacts", {
+  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  supplierContactId: integer("supplier_contact_id").notNull().references(() => supplierContacts.id, { onDelete: "cascade" }),
+}, (table) => [uniqueIndex("project_supplier_contacts_uq").on(table.projectId, table.supplierContactId)]);
 
 export const materials = pgTable("materials", {
   id: serial("id").primaryKey(), code: text("code").notNull().unique(), name: text("name").notNull(),
@@ -75,6 +86,7 @@ export const budgets = pgTable("budgets", {
 export const orders = pgTable("orders", {
   id: serial("id").primaryKey(), code: text("code").notNull().unique(),
   projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "restrict" }),
+  supplierContactId: integer("supplier_contact_id").references(() => supplierContacts.id, { onDelete: "set null" }),
   supplierId: text("supplier_id").references(() => user.id, { onDelete: "set null" }),
   createdById: text("created_by_id").notNull().references(() => user.id, { onDelete: "restrict" }),
   status: orderStatusEnum("status").notNull().default("pending"), note: text("note"),

@@ -1,7 +1,7 @@
 import { alias } from "drizzle-orm/pg-core";
 import { and, asc, count, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { budgets, materials, orderItems, orders, payments, projectMaterialActual, projects, user } from "../db/schema.js";
+import { budgets, materials, orderItems, orders, payments, projectMaterialActual, projectSupplierContacts, projects, supplierContacts, user } from "../db/schema.js";
 import { monthRange, toNumber } from "../lib/utils.js";
 import { logActivity } from "./activity-service.js";
 
@@ -65,6 +65,20 @@ export async function getReconcile(projectId?: number) {
   const totalBudget = rows.reduce((sum, row) => sum + row.budgetAmount, 0);
   const totalActual = rows.reduce((sum, row) => sum + row.actualAmount, 0);
   return { projects: projectRows, selectedId, rows, totalBudget, totalActual, totalDiff: totalActual - totalBudget };
+}
+
+export async function getProjectSummary(projectId: number) {
+  const [project] = await db.select().from(projects).where(eq(projects.id, projectId));
+  if (!project) throw new Error("Không tìm thấy công trình.");
+  const [reconcile, statusRows, recentOrders, linked] = await Promise.all([
+    getReconcile(projectId),
+    db.select({ status: orders.status, value: count() }).from(orders).where(eq(orders.projectId, projectId)).groupBy(orders.status),
+    db.select({ id: orders.id, code: orders.code, status: orders.status, total: orders.total, createdAt: orders.createdAt }).from(orders).where(eq(orders.projectId, projectId)).orderBy(desc(orders.createdAt)).limit(8),
+    db.select({ id: supplierContacts.id, name: supplierContacts.name, phone: supplierContacts.phone }).from(projectSupplierContacts).innerJoin(supplierContacts, eq(projectSupplierContacts.supplierContactId, supplierContacts.id)).where(eq(projectSupplierContacts.projectId, projectId)),
+  ]);
+  const defaultSupplier = linked.find((item) => item.id === project.defaultSupplierContactId) ?? null;
+  return { project, totalBudget: reconcile.totalBudget, totalActual: reconcile.totalActual, totalDiff: reconcile.totalDiff, statusRows, recentOrders: recentOrders.map((row) => ({ ...row, total: toNumber(row.total) })), suppliers: linked, defaultSupplier,
+    neededMaterials: reconcile.rows.filter((row) => row.budgetQty > row.actualQty).map((row) => ({ ...row, remainingQty: row.budgetQty - row.actualQty })) };
 }
 
 export async function getDashboard() {

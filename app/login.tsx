@@ -8,7 +8,7 @@ import { useNotice } from "@/components/snackbar";
 
 const demos = [
   { label: "Quản trị", email: "admin@demo.vn" },
-  { label: "Đội thi công", email: "site@demo.vn" },
+  { label: "Bộ phận thi công", email: "site@demo.vn" },
   { label: "Cửa hàng", email: "supplier@demo.vn" },
 ];
 

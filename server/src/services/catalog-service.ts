@@ -1,34 +1,67 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { budgets, materials, projects, user, type ProjectStatus } from "../db/schema.js";
+import { budgets, materials, projectSupplierContacts, projects, supplierContacts, user, type ProjectStatus } from "../db/schema.js";
 import { toNumber } from "../lib/utils.js";
 import { logActivity } from "./activity-service.js";
 
 type Actor = { id: string; name: string };
 
 export async function getOrderOptions() {
-  const [projectRows, materialRows, suppliers, priceRows] = await Promise.all([
+  const [projectRows, materialRows, suppliers, priceRows, contacts, links] = await Promise.all([
     db.select().from(projects).orderBy(asc(projects.name)),
     db.select().from(materials).orderBy(asc(materials.group), asc(materials.name)),
     db.select({ id: user.id, name: user.name, email: user.email }).from(user).where(eq(user.role, "supplier")).orderBy(asc(user.name)),
     db.select({ materialId: budgets.materialId, unitPrice: budgets.unitPrice }).from(budgets),
+    db.select().from(supplierContacts).orderBy(asc(supplierContacts.name)),
+    db.select().from(projectSupplierContacts),
   ]);
   const suggestedPrices: Record<number, number> = {};
   for (const row of priceRows) if (suggestedPrices[row.materialId] === undefined) suggestedPrices[row.materialId] = Number(row.unitPrice);
-  return { projects: projectRows, materials: materialRows, suppliers, suggestedPrices };
+  const projectContacts = Object.fromEntries(projectRows.map((project) => [project.id, links.filter((link) => link.projectId === project.id).map((link) => link.supplierContactId)]));
+  return { projects: projectRows, materials: materialRows, suppliers, suggestedPrices, contacts, projectContacts };
 }
 
 export async function listProjects() { return db.select().from(projects).orderBy(asc(projects.name)); }
 export async function listMaterials() { return db.select().from(materials).orderBy(asc(materials.group), asc(materials.name)); }
 export async function listSuppliers() { return db.select({ id: user.id, name: user.name, email: user.email }).from(user).where(eq(user.role, "supplier")).orderBy(asc(user.name)); }
 
-export async function createProject(actor: Actor, input: { code: string; name: string; address?: string; status?: ProjectStatus }) {
+export async function listSupplierContacts() { return db.select().from(supplierContacts).orderBy(asc(supplierContacts.name)); }
+function cleanPhone(value: string) {
+  const phone = value.replace(/[^0-9+]/g, "");
+  if (!/^(0|\+84)\d{9,10}$/.test(phone)) throw new Error("Số Zalo Việt Nam không hợp lệ.");
+  return phone;
+}
+export async function createSupplierContact(actor: Actor, input: { name: string; phone: string }) {
+  if (!input.name?.trim()) throw new Error("Tên đơn vị cung cấp là bắt buộc.");
+  await db.insert(supplierContacts).values({ name: input.name.trim(), phone: cleanPhone(input.phone) });
+  await logActivity(db, { actorId: actor.id, actorName: actor.name, action: "supplierContact.created", entityType: "supplierContact", summary: `${actor.name} thêm đơn vị cung cấp "${input.name.trim()}".` });
+}
+export async function updateSupplierContact(actor: Actor, id: number, input: { name: string; phone: string }) {
+  if (!input.name?.trim()) throw new Error("Tên đơn vị cung cấp là bắt buộc.");
+  await db.update(supplierContacts).set({ name: input.name.trim(), phone: cleanPhone(input.phone), updatedAt: new Date() }).where(eq(supplierContacts.id, id));
+  await logActivity(db, { actorId: actor.id, actorName: actor.name, action: "supplierContact.updated", entityType: "supplierContact", entityId: id, summary: `${actor.name} cập nhật đơn vị cung cấp "${input.name.trim()}".` });
+}
+export async function deleteSupplierContact(actor: Actor, id: number) { await db.delete(supplierContacts).where(eq(supplierContacts.id, id)); await logActivity(db, { actorId: actor.id, actorName: actor.name, action: "supplierContact.deleted", entityType: "supplierContact", entityId: id, summary: `${actor.name} xóa một đơn vị cung cấp.` }); }
+
+async function setProjectContacts(projectId: number, defaultId: number | null | undefined, ids: number[] | undefined) {
+  const contactIds = Array.from(new Set((ids ?? []).filter(Number)));
+  if (defaultId && !contactIds.includes(defaultId)) throw new Error("Đơn vị mặc định phải thuộc danh sách liên quan.");
+  await db.transaction(async (tx) => {
+    await tx.delete(projectSupplierContacts).where(eq(projectSupplierContacts.projectId, projectId));
+    if (contactIds.length) await tx.insert(projectSupplierContacts).values(contactIds.map((supplierContactId) => ({ projectId, supplierContactId })));
+    await tx.update(projects).set({ defaultSupplierContactId: defaultId || null }).where(eq(projects.id, projectId));
+  });
+}
+
+export async function createProject(actor: Actor, input: { code: string; name: string; address?: string; status?: ProjectStatus; defaultSupplierContactId?: number | null; supplierContactIds?: number[] }) {
   if (!input.code?.trim() || !input.name?.trim()) throw new Error("Mã và tên công trình là bắt buộc.");
-  await db.insert(projects).values({ code: input.code.trim(), name: input.name.trim(), address: input.address?.trim() || null, status: input.status ?? "active" });
+  const [created] = await db.insert(projects).values({ code: input.code.trim(), name: input.name.trim(), address: input.address?.trim() || null, status: input.status ?? "active" }).returning({ id: projects.id });
+  await setProjectContacts(created.id, input.defaultSupplierContactId, input.supplierContactIds);
   await logActivity(db, { actorId: actor.id, actorName: actor.name, action: "project.created", entityType: "project", summary: `${actor.name} thêm công trình "${input.name.trim()}" (${input.code.trim()}).` });
 }
-export async function updateProject(actor: Actor, id: number, input: { code: string; name: string; address?: string; status: ProjectStatus }) {
+export async function updateProject(actor: Actor, id: number, input: { code: string; name: string; address?: string; status: ProjectStatus; defaultSupplierContactId?: number | null; supplierContactIds?: number[] }) {
   await db.update(projects).set({ code: input.code.trim(), name: input.name.trim(), address: input.address?.trim() || null, status: input.status }).where(eq(projects.id, id));
+  if (input.defaultSupplierContactId !== undefined || input.supplierContactIds !== undefined) await setProjectContacts(id, input.defaultSupplierContactId, input.supplierContactIds);
   await logActivity(db, { actorId: actor.id, actorName: actor.name, action: "project.updated", entityType: "project", entityId: id, summary: `${actor.name} sửa công trình "${input.name.trim()}" (${input.code.trim()}).` });
 }
 export async function deleteProject(actor: Actor, id: number) {

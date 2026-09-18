@@ -3,13 +3,13 @@ import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { db } from "../db/index.js";
 import {
   activityLog, materials, notifications, orderItems, orders,
-  projectMaterialActual, projects, user, type UserRole,
+  projectMaterialActual, projectSupplierContacts, projects, supplierContacts, user, type UserRole,
 } from "../db/schema.js";
 import { toNumber } from "../lib/utils.js";
 import { logActivity } from "./activity-service.js";
 
 type CurrentUser = { id: string; name: string; role: UserRole };
-type NewOrder = { projectId: number; supplierId?: string | null; note?: string | null; items?: { materialId: number; qty: number; unitPrice: number }[] };
+type NewOrder = { projectId: number; supplierId?: string | null; supplierContactId?: number | null; note?: string | null; items?: { materialId: number; qty: number; unitPrice: number }[] };
 
 const creator = alias(user, "creator");
 const supplier = alias(user, "supplier");
@@ -37,10 +37,10 @@ export async function getOrder(orderId: number) {
     id: orders.id, code: orders.code, status: orders.status, note: orders.note,
     total: orders.total, createdAt: orders.createdAt, approvedAt: orders.approvedAt,
     deliveredAt: orders.deliveredAt, rejectedReason: orders.rejectedReason,
-    projectName: projects.name, creatorName: creator.name, supplierName: supplier.name,
+    projectName: projects.name, creatorName: creator.name, supplierName: supplier.name, supplierContactName: supplierContacts.name, supplierContactPhone: supplierContacts.phone,
   }).from(orders).innerJoin(projects, eq(orders.projectId, projects.id))
     .innerJoin(creator, eq(orders.createdById, creator.id))
-    .leftJoin(supplier, eq(orders.supplierId, supplier.id))
+    .leftJoin(supplier, eq(orders.supplierId, supplier.id)).leftJoin(supplierContacts, eq(orders.supplierContactId, supplierContacts.id))
     .where(eq(orders.id, orderId));
   if (!order) return null;
   const [items, timeline] = await Promise.all([
@@ -51,7 +51,7 @@ export async function getOrder(orderId: number) {
     db.select().from(activityLog).where(and(eq(activityLog.entityType, "order"), eq(activityLog.entityId, orderId)))
       .orderBy(asc(activityLog.createdAt)),
   ]);
-  return { ...order, supplierName: order.supplierName ?? "Tất cả cửa hàng", items, timeline };
+  return { ...order, supplierName: order.supplierName ?? "Tất cả cửa hàng", supplierContact: order.supplierContactName ? { name: order.supplierContactName, phone: order.supplierContactPhone } : null, items, timeline };
 }
 
 export async function getApprovalOrders() {
@@ -78,15 +78,23 @@ async function listActionOrders(where: ReturnType<typeof eq> | undefined, orderC
 }
 
 export async function createOrder(me: CurrentUser, input: NewOrder) {
-  if (me.role !== "site" && me.role !== "admin") throw new Error("Chỉ đội thi công mới được tạo đơn.");
+  if (me.role !== "site" && me.role !== "admin") throw new Error("Chỉ Bộ phận thi công mới được tạo đơn.");
   const items = (input.items ?? []).filter((item) => item.materialId && toNumber(item.qty) > 0);
   if (!input.projectId) throw new Error("Vui lòng chọn công trình.");
   if (!items.length) throw new Error("Đơn phải có ít nhất một dòng vật tư hợp lệ.");
   const total = items.reduce((sum, item) => sum + toNumber(item.qty) * toNumber(item.unitPrice), 0);
+  const [projectConfig] = await db.select({ defaultSupplierContactId: projects.defaultSupplierContactId }).from(projects).where(eq(projects.id, input.projectId));
+  const supplierContactId = input.supplierContactId ?? projectConfig?.defaultSupplierContactId ?? null;
+  if (supplierContactId) {
+    const [linkedContact] = await db.select({ id: projectSupplierContacts.supplierContactId })
+      .from(projectSupplierContacts)
+      .where(and(eq(projectSupplierContacts.projectId, input.projectId), eq(projectSupplierContacts.supplierContactId, supplierContactId)));
+    if (!linkedContact) throw new Error("Đơn vị cung cấp không thuộc công trình đã chọn.");
+  }
   let newOrderId = 0;
   await db.transaction(async (tx) => {
     const [inserted] = await tx.insert(orders).values({ code: "TMP", projectId: input.projectId,
-      supplierId: input.supplierId || null, createdById: me.id, status: "pending", note: input.note || null,
+      supplierId: input.supplierId || null, supplierContactId, createdById: me.id, status: "pending", note: input.note || null,
       total: total.toFixed(2) }).returning({ id: orders.id });
     newOrderId = inserted.id;
     const code = `DH${String(inserted.id).padStart(5, "0")}`;
