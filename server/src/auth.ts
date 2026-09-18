@@ -12,7 +12,9 @@ export const auth = betterAuth({
     ...config.corsOrigins,
     `${config.appScheme}://`,
     `${config.appScheme}://*`,
-    ...(config.nodeEnv === "development" ? ["exp://", "exp://**"] : []),
+    // Expo Go uses an exp:// origin in both LAN and tunnel development.
+    "exp://",
+    "exp://**",
   ],
   database: drizzleAdapter(db, {
     provider: "pg",
