@@ -1,8 +1,9 @@
 import { fetch } from "expo/fetch";
 import { authClient } from "./auth-client";
+import { apiBaseUrl } from "./runtime-config";
 export class ApiError extends Error { constructor(message: string, public status: number) { super(message); } }
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const baseUrl = process.env.EXPO_PUBLIC_API_URL;
+  const baseUrl = apiBaseUrl;
   if (!baseUrl) throw new ApiError("EXPO_PUBLIC_API_URL chưa được cấu hình.", 0);
   const cookie = await authClient.getCookie();
   let response: Response;
