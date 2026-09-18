@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Stack } from "expo-router";
-import { Button, Card, Dialog, Portal, Text, TextInput } from "react-native-paper";
+import { Button, Card, Dialog, Portal, Text, TextInput } from "@/components/ui";
 import { Screen, StateView, Empty } from "@/components/screen";
 import { SelectMenu } from "@/components/select-menu";
 import { useApi } from "@/hooks/use-api";

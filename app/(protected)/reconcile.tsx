@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Stack } from "expo-router";
-import { Card, Text } from "react-native-paper";
+import { Card, Text } from "@/components/ui";
 import { Screen, StateView, Empty } from "@/components/screen";
 import { SelectMenu } from "@/components/select-menu";
 import { BarChart } from "@/components/charts";

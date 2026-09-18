@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { Card, Text } from "react-native-paper";
+import { Card, Text } from "@/components/ui";
 import { useApi } from "@/hooks/use-api";
 import { Empty, Screen, StateView } from "./screen";
 import { OrderActions } from "./order-actions";

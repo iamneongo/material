@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { router, Stack } from "expo-router";
-import { Button, Card, Searchbar, Text } from "react-native-paper";
+import { Button, Card, Searchbar, Text } from "@/components/ui";
 import { Screen, StateView, Empty } from "@/components/screen";
 import { SelectMenu } from "@/components/select-menu";
 import { StatusChip } from "@/components/status-chip";

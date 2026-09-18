@@ -1,5 +1,5 @@
 import { router, Stack } from "expo-router";
-import { Button, Card, Text } from "react-native-paper";
+import { Button, Card, Text } from "@/components/ui";
 import { Screen, StateView, Empty } from "@/components/screen";
 import { useApi } from "@/hooks/use-api";
 import { api, jsonBody } from "@/lib/api";

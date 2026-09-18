@@ -1,7 +1,25 @@
 import { View } from "react-native";
-import { Text } from "react-native-paper";
-import Svg, { Rect } from "react-native-svg";
+import { Text } from "@/components/ui";
 import { formatVND } from "@/lib/format";
-const colors = ["#2563eb", "#16a34a", "#d97706", "#9333ea", "#dc2626", "#0891b2"];
-export function BarChart({ data, money = false }: { data: { name: string; value: number }[]; money?: boolean }) { const max = Math.max(1, ...data.map((item) => item.value)); return <View style={{ gap: 8 }}>{data.map((item, index) => <View key={item.name} style={{ gap: 3 }}><View style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}><Text selectable variant="labelSmall">{item.name}</Text><Text selectable variant="labelSmall">{money ? formatVND(item.value) : item.value}</Text></View><Svg width="100%" height={12}><Rect x={0} y={0} width={`${Math.max(2, item.value / max * 100)}%`} height={12} rx={6} fill={colors[index % colors.length]} /></Svg></View>)}</View>; }
-export function LegendChart({ data }: { data: { name: string; value: number }[] }) { return <View style={{ gap: 8 }}>{data.map((item, index) => <View key={item.name} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}><View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors[index % colors.length] }} /><Text selectable style={({ flex: 1 } as any)}>{item.name}</Text><Text selectable>{formatVND(item.value)}</Text></View>)}</View>; }
+
+const colors = ["#0B57D0", "#188038", "#C26401", "#7B1FA2", "#C5221F", "#007B83"];
+
+export function BarChart({ data, money = false }: { data: { name: string; value: number }[]; money?: boolean }) {
+  const max = Math.max(1, ...data.map((item) => item.value));
+  return <View style={{ gap: 14 }}>
+    {data.map((item, index) => {
+      const width = `${Math.max(3, Math.round(item.value / max * 100))}%` as const;
+      return <View key={item.name} style={{ gap: 6 }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}><Text variant="labelMedium">{item.name}</Text><Text variant="labelMedium">{money ? formatVND(item.value) : item.value}</Text></View>
+        <View style={{ height: 10, borderRadius: 99, backgroundColor: "#E7ECF3", overflow: "hidden" }}><View style={{ width, height: "100%", borderRadius: 99, backgroundColor: colors[index % colors.length] }} /></View>
+      </View>;
+    })}
+  </View>;
+}
+
+export function LegendChart({ data }: { data: { name: string; value: number }[] }) {
+  const total = Math.max(1, data.reduce((sum, item) => sum + item.value, 0));
+  return <View style={{ gap: 12 }}>
+    {data.map((item, index) => <View key={item.name} style={{ gap: 5 }}><View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}><View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors[index % colors.length] }} /><Text style={{ flex: 1 }}>{item.name}</Text><Text variant="labelMedium">{formatVND(item.value)}</Text></View><View style={{ marginLeft: 18, height: 5, borderRadius: 99, backgroundColor: "#E7ECF3", overflow: "hidden" }}><View style={{ width: `${Math.max(2, Math.round(item.value / total * 100))}%`, height: "100%", backgroundColor: colors[index % colors.length] }} /></View></View>)}
+  </View>;
+}

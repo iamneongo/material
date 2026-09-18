@@ -1,5 +1,5 @@
 import { Redirect, Stack } from "expo-router";
-import { ActivityIndicator } from "react-native-paper";
+import { ActivityIndicator } from "@/components/ui";
 import { View } from "react-native";
 import { authClient } from "@/lib/auth-client";
 import { HeaderActions } from "@/components/header-actions";

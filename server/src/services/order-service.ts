@@ -94,10 +94,10 @@ export async function createOrder(me: CurrentUser, input: NewOrder) {
     await tx.insert(orderItems).values(items.map((item) => ({ orderId: inserted.id, materialId: item.materialId,
       qty: toNumber(item.qty).toFixed(3), unitPrice: toNumber(item.unitPrice).toFixed(2),
       amount: (toNumber(item.qty) * toNumber(item.unitPrice)).toFixed(2) })));
-    const directors = await tx.select({ id: user.id }).from(user).where(eq(user.role, "director"));
+    const admins = await tx.select({ id: user.id }).from(user).where(eq(user.role, "admin"));
     const suppliers = input.supplierId ? [{ id: input.supplierId }] : await tx.select({ id: user.id }).from(user).where(eq(user.role, "supplier"));
     const [project] = await tx.select({ name: projects.name }).from(projects).where(eq(projects.id, input.projectId));
-    const recipients = Array.from(new Set([...directors, ...suppliers].map((row) => row.id)));
+    const recipients = Array.from(new Set([...admins, ...suppliers].map((row) => row.id)));
     if (recipients.length) await tx.insert(notifications).values(recipients.map((userId) => ({ userId,
       title: `Đơn đặt vật tư mới ${code}`, message: `${me.name} vừa tạo đơn ${code} cho công trình "${project?.name ?? ""}".`, orderId: inserted.id })));
     await logActivity(tx, { actorId: me.id, actorName: me.name, action: "order.created", entityType: "order", entityId: inserted.id,
@@ -107,7 +107,7 @@ export async function createOrder(me: CurrentUser, input: NewOrder) {
 }
 
 export async function approveOrder(me: CurrentUser, orderId: number) {
-  if (!(["director", "admin"] as UserRole[]).includes(me.role)) throw new Error("Chỉ giám đốc mới được duyệt đơn.");
+  if (me.role !== "admin") throw new Error("Chỉ quản trị mới được duyệt đơn.");
   await db.transaction(async (tx) => {
     const [order] = await tx.select().from(orders).where(eq(orders.id, orderId));
     if (!order) throw new Error("Không tìm thấy đơn.");
@@ -129,7 +129,7 @@ export async function approveOrder(me: CurrentUser, orderId: number) {
 }
 
 export async function rejectOrder(me: CurrentUser, orderId: number, reason: string) {
-  if (!(["director", "admin"] as UserRole[]).includes(me.role)) throw new Error("Chỉ giám đốc mới được từ chối đơn.");
+  if (me.role !== "admin") throw new Error("Chỉ quản trị mới được từ chối đơn.");
   await db.transaction(async (tx) => {
     const [order] = await tx.select().from(orders).where(eq(orders.id, orderId));
     if (!order) throw new Error("Không tìm thấy đơn.");
@@ -149,8 +149,8 @@ export async function deliverOrder(me: CurrentUser, orderId: number) {
     if (!order) throw new Error("Không tìm thấy đơn.");
     if (order.status !== "approved") throw new Error("Đơn chưa được duyệt hoặc đã giao.");
     await tx.update(orders).set({ status: "delivered", deliveredAt: new Date() }).where(eq(orders.id, orderId));
-    const directors = await tx.select({ id: user.id }).from(user).where(eq(user.role, "director"));
-    const recipients = Array.from(new Set([order.createdById, ...directors.map((row) => row.id)]));
+    const admins = await tx.select({ id: user.id }).from(user).where(eq(user.role, "admin"));
+    const recipients = Array.from(new Set([order.createdById, ...admins.map((row) => row.id)]));
     await tx.insert(notifications).values(recipients.map((userId) => ({ userId, title: `Đơn ${order.code} đã giao`, message: `Đơn ${order.code} đã được cửa hàng giao hàng.`, orderId })));
     await logActivity(tx, { actorId: me.id, actorName: me.name, action: "order.delivered", entityType: "order", entityId: orderId, summary: `${me.name} đã giao đơn ${order.code}.` });
   });

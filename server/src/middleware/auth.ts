@@ -10,11 +10,12 @@ export async function requireUser(request: Request, response: Response, next: Ne
     return;
   }
   const current = session.user as typeof session.user & { role?: UserRole };
+  const role = current.role === "director" ? "admin" : (current.role ?? "site");
   request.currentUser = {
     id: current.id,
     name: current.name,
     email: current.email,
-    role: current.role ?? "site",
+    role,
     image: current.image,
   };
   next();
