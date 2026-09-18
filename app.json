@@ -35,10 +35,14 @@
       "router": {
         "root": "app"
       },
-      "apiUrl": "https://material-api-4fsd6i-64cac0-103-72-98-129.sslip.io"
+      "apiUrl": "https://material-api-4fsd6i-64cac0-103-72-98-129.sslip.io",
+      "eas": {
+        "projectId": "c12085e9-2bfe-4ef4-a3c1-5f6733d51b77"
+      }
     },
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "owner": "iamneongo"
   }
 }

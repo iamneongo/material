@@ -46,5 +46,6 @@ next-env.d.ts
 
 expo-env.d.ts
 /.expo/
+/.expo-ui-check/
 /dist/
 # @end expo-cli
