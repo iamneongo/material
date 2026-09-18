@@ -34,6 +34,15 @@ export default function Login() {
         notice(result.error.message || "Email hoặc mật khẩu không đúng.");
         return;
       }
+      // expoClient persists the session cookie asynchronously. Hydrate the
+      // client store before navigating so the protected layout never sees a
+      // transient signed-out state after a successful first login.
+      const sessionResult = await authClient.getSession();
+      if (!sessionResult.data?.user) {
+        notice("Đăng nhập thành công nhưng chưa tải được phiên làm việc. Hãy thử lại.");
+        return;
+      }
+      authClient.hydrateSession(sessionResult.data);
       notice("Đăng nhập thành công");
       router.replace("/");
     } catch {
