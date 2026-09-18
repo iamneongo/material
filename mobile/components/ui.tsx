@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import type { PropsWithChildren, ReactNode } from "react";
 import { Modal, Pressable } from "react-native";
 import {
@@ -122,7 +123,12 @@ export const List = { Item: ListItem, Icon: ListIcon };
 export function Chip({ children, style, compact }: PropsWithChildren<{ style?: object; compact?: boolean }>) { return <VStack alignSelf="flex-start" backgroundColor="#E8F0FE" paddingHorizontal={compact ? "$2" : "$3"} paddingVertical="$1" borderRadius={99} style={style as any}><Text variant="labelMedium">{children}</Text></VStack>; }
 
 export function Portal({ children }: PropsWithChildren) { return <>{children}</>; }
-export function Snackbar({ visible, onDismiss, children }: PropsWithChildren<{ visible: boolean; onDismiss: () => void; duration?: number }>) {
+export function Snackbar({ visible, onDismiss, children, duration = 3000 }: PropsWithChildren<{ visible: boolean; onDismiss: () => void; duration?: number }>) {
+  useEffect(() => {
+    if (!visible) return;
+    const timer = setTimeout(onDismiss, duration);
+    return () => clearTimeout(timer);
+  }, [duration, onDismiss, visible]);
   if (!visible) return null;
   return <VStack position="absolute" bottom={28} left={20} right={20} zIndex={100}><BaseButton unstyled onPress={onDismiss} backgroundColor="#2B2F36" padding="$3" borderRadius={14}><Text selectable={false} style={{ color: "#FFFFFF" }}>{children}</Text></BaseButton></VStack>;
 }
