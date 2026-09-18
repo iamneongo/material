@@ -9,7 +9,7 @@ RUN pnpm install --frozen-lockfile --ignore-scripts
 
 COPY tsconfig.json ./
 COPY src ./src
-RUN pnpm exec tsc --outDir dist
+RUN pnpm exec tsc --noEmit false --outDir dist
 
 FROM node:20-alpine
 
