@@ -1,0 +1,3 @@
+import { useState } from "react";
+import { Button, Menu } from "react-native-paper";
+export function SelectMenu({ value, options, onChange, label = "Chọn" }: { value?: string; options: { value: string; label: string }[]; onChange: (value: string) => void; label?: string }) { const [open, setOpen] = useState(false); const selected = options.find((option) => option.value === value)?.label ?? label; return <Menu visible={open} onDismiss={() => setOpen(false)} anchor={<Button mode="outlined" onPress={() => setOpen(true)} contentStyle={({ justifyContent: "flex-start" } as any)}>{selected}</Button>}>{options.map((option) => <Menu.Item key={option.value} title={option.label} onPress={() => { onChange(option.value); setOpen(false); }} />)}</Menu>; }

@@ -1,0 +1,10 @@
+import { useMemo, useState } from "react";
+import { Stack } from "expo-router";
+import { Button, Card, Searchbar, Text } from "react-native-paper";
+import { Screen, StateView, Empty } from "@/components/screen";
+import { SelectMenu } from "@/components/select-menu";
+import { useApi } from "@/hooks/use-api";
+import { formatDateTime } from "@/lib/format";
+type Row = { id: number; actorName: string; action: string; entityType: string; summary: string; createdAt: string };
+const labels: Record<string, string> = { order: "Đơn hàng", payment: "Thanh toán", project: "Công trình", material: "Vật tư", budget: "Dự toán" };
+export default function History() { const query = useApi<Row[]>("/api/activity"); const [search, setSearch] = useState(""); const [kind, setKind] = useState("all"); const [descending, setDescending] = useState(true); const rows = useMemo(() => (query.data ?? []).filter((row) => (kind === "all" || row.entityType === kind) && `${row.actorName} ${row.summary}`.toLowerCase().includes(search.toLowerCase())).sort((a, b) => (Date.parse(a.createdAt) - Date.parse(b.createdAt)) * (descending ? -1 : 1)), [query.data, search, kind, descending]); return <Screen><Stack.Screen options={{ title: "Nhật ký hoạt động" }} /><Searchbar placeholder="Tìm người thực hiện, nội dung" value={search} onChangeText={setSearch} /><SelectMenu value={kind} onChange={setKind} options={[{ value: "all", label: "Tất cả loại" }, ...Object.entries(labels).map(([value, label]) => ({ value, label }))]} /><Button mode="outlined" onPress={() => setDescending((value) => !value)}>Thời gian: {descending ? "mới nhất" : "cũ nhất"}</Button><StateView loading={query.loading} error={query.error} retry={query.refresh}>{rows.length === 0 ? <Empty>Chưa có hoạt động nào.</Empty> : rows.map((row) => <Card key={row.id}><Card.Title title={labels[row.entityType] ?? row.entityType} subtitle={`${row.actorName} · ${formatDateTime(row.createdAt)}`} /><Card.Content><Text selectable>{row.summary}</Text></Card.Content></Card>)}</StateView></Screen>; }

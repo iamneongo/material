@@ -1,0 +1,5 @@
+import { Stack } from "expo-router";
+import { Card, Text } from "react-native-paper";
+import { Screen } from "@/components/screen";
+const sections = [{ title: "Giới thiệu", text: "Đội thi công đặt vật tư, giám đốc duyệt, cửa hàng giao; hệ thống tự phân bổ, đối chiếu dự toán và thống kê công nợ." }, { title: "Vai trò", text: "Quản trị: danh mục và toàn bộ dữ liệu. Giám đốc: duyệt, báo cáo, thanh toán. Đội thi công: tạo và theo dõi đơn. Cửa hàng: giao hàng và xem công nợ." }, { title: "Luồng nghiệp vụ", text: "1. Tạo đơn nhiều dòng. 2. Duyệt hoặc từ chối. 3. Giao hàng. 4. Đối chiếu, thống kê và công nợ." }, { title: "Công nợ", text: "Công nợ = tổng tiền các đơn đã giao − tổng các khoản thanh toán đã ghi nhận." }, { title: "Thông báo", text: "Thông báo chỉ nằm trong ứng dụng; hệ thống hiện không gửi email hoặc SMS." }];
+export default function Docs() { return <Screen><Stack.Screen options={{ title: "Tài liệu hệ thống" }} />{sections.map((item) => <Card key={item.title}><Card.Title title={item.title} /><Card.Content><Text selectable>{item.text}</Text></Card.Content></Card>)}</Screen>; }

@@ -1,0 +1,7 @@
+import { View } from "react-native";
+import { Text } from "react-native-paper";
+import Svg, { Rect } from "react-native-svg";
+import { formatVND } from "@/lib/format";
+const colors = ["#2563eb", "#16a34a", "#d97706", "#9333ea", "#dc2626", "#0891b2"];
+export function BarChart({ data, money = false }: { data: { name: string; value: number }[]; money?: boolean }) { const max = Math.max(1, ...data.map((item) => item.value)); return <View style={{ gap: 8 }}>{data.map((item, index) => <View key={item.name} style={{ gap: 3 }}><View style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}><Text selectable variant="labelSmall">{item.name}</Text><Text selectable variant="labelSmall">{money ? formatVND(item.value) : item.value}</Text></View><Svg width="100%" height={12}><Rect x={0} y={0} width={`${Math.max(2, item.value / max * 100)}%`} height={12} rx={6} fill={colors[index % colors.length]} /></Svg></View>)}</View>; }
+export function LegendChart({ data }: { data: { name: string; value: number }[] }) { return <View style={{ gap: 8 }}>{data.map((item, index) => <View key={item.name} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}><View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors[index % colors.length] }} /><Text selectable style={({ flex: 1 } as any)}>{item.name}</Text><Text selectable>{formatVND(item.value)}</Text></View>)}</View>; }
