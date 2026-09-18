@@ -14,7 +14,15 @@ export function createApp() {
     cors({
       credentials: true,
       origin(origin, callback) {
-        if (!origin || config.corsOrigins.includes(origin)) {
+        const isExpoGoOrigin = origin?.startsWith("exp://") ?? false;
+        const isNativeAppOrigin = origin?.startsWith(`${config.appScheme}://`) ?? false;
+
+        if (
+          !origin ||
+          config.corsOrigins.includes(origin) ||
+          isExpoGoOrigin ||
+          isNativeAppOrigin
+        ) {
           callback(null, true);
           return;
         }
