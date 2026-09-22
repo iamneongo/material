@@ -11,6 +11,10 @@ export async function requireUser(request: Request, response: Response, next: Ne
   }
   const current = session.user as typeof session.user & { role?: UserRole };
   const role = current.role === "director" ? "admin" : (current.role ?? "site");
+  if (role === "supplier") {
+    response.status(403).json({ error: "Tài khoản Cửa hàng không sử dụng ứng dụng nội bộ này." });
+    return;
+  }
   request.currentUser = {
     id: current.id,
     name: current.name,

@@ -1,16 +1,15 @@
 import { asc, eq, inArray } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { budgets, materials, projectSupplierContacts, projects, supplierContacts, user, type ProjectStatus } from "../db/schema.js";
+import { budgets, materials, projectSupplierContacts, projects, supplierContacts, type ProjectStatus } from "../db/schema.js";
 import { toNumber } from "../lib/utils.js";
 import { logActivity } from "./activity-service.js";
 
 type Actor = { id: string; name: string };
 
 export async function getOrderOptions() {
-  const [projectRows, materialRows, suppliers, priceRows, contacts, links] = await Promise.all([
+  const [projectRows, materialRows, priceRows, contacts, links] = await Promise.all([
     db.select().from(projects).orderBy(asc(projects.name)),
     db.select().from(materials).orderBy(asc(materials.group), asc(materials.name)),
-    db.select({ id: user.id, name: user.name, email: user.email }).from(user).where(eq(user.role, "supplier")).orderBy(asc(user.name)),
     db.select({ materialId: budgets.materialId, unitPrice: budgets.unitPrice }).from(budgets),
     db.select().from(supplierContacts).orderBy(asc(supplierContacts.name)),
     db.select().from(projectSupplierContacts),
@@ -18,13 +17,11 @@ export async function getOrderOptions() {
   const suggestedPrices: Record<number, number> = {};
   for (const row of priceRows) if (suggestedPrices[row.materialId] === undefined) suggestedPrices[row.materialId] = Number(row.unitPrice);
   const projectContacts = Object.fromEntries(projectRows.map((project) => [project.id, links.filter((link) => link.projectId === project.id).map((link) => link.supplierContactId)]));
-  return { projects: projectRows, materials: materialRows, suppliers, suggestedPrices, contacts, projectContacts };
+  return { projects: projectRows, materials: materialRows, suggestedPrices, contacts, projectContacts };
 }
 
 export async function listProjects() { return db.select().from(projects).orderBy(asc(projects.name)); }
 export async function listMaterials() { return db.select().from(materials).orderBy(asc(materials.group), asc(materials.name)); }
-export async function listSuppliers() { return db.select({ id: user.id, name: user.name, email: user.email }).from(user).where(eq(user.role, "supplier")).orderBy(asc(user.name)); }
-
 export async function listSupplierContacts() { return db.select().from(supplierContacts).orderBy(asc(supplierContacts.name)); }
 function cleanPhone(value: string) {
   const phone = value.replace(/[^0-9+]/g, "");

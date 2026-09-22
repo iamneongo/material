@@ -19,9 +19,7 @@ export async function orderDetail(request: Request, response: Response) {
 export async function orderCreate(request: Request, response: Response) { response.status(201).json(await orders.createOrder(me(request), request.body)); }
 export async function orderApprove(request: Request, response: Response) { await orders.approveOrder(me(request), idParam(request)); response.json({ ok: true }); }
 export async function orderReject(request: Request, response: Response) { await orders.rejectOrder(me(request), idParam(request), String(request.body?.reason ?? "")); response.json({ ok: true }); }
-export async function orderDeliver(request: Request, response: Response) { await orders.deliverOrder(me(request), idParam(request)); response.json({ ok: true }); }
 export async function approvalList(_request: Request, response: Response) { response.json(await orders.getApprovalOrders()); }
-export async function deliveryList(request: Request, response: Response) { response.json(await orders.getDeliveryOrders(me(request))); }
 export async function orderOptions(_request: Request, response: Response) { response.json(await catalog.getOrderOptions()); }
 
 export async function projectList(_request: Request, response: Response) { response.json(await catalog.listProjects()); }
@@ -33,7 +31,6 @@ export async function materialList(_request: Request, response: Response) { resp
 export async function materialCreate(request: Request, response: Response) { await catalog.createMaterial(me(request), request.body); response.status(201).json({ ok: true }); }
 export async function materialUpdate(request: Request, response: Response) { await catalog.updateMaterial(me(request), idParam(request), request.body); response.json({ ok: true }); }
 export async function materialDelete(request: Request, response: Response) { await catalog.deleteMaterial(me(request), idParam(request)); response.json({ ok: true }); }
-export async function supplierList(_request: Request, response: Response) { response.json(await catalog.listSuppliers()); }
 export async function supplierContactList(_request: Request, response: Response) { response.json(await catalog.listSupplierContacts()); }
 export async function supplierContactCreate(request: Request, response: Response) { await catalog.createSupplierContact(me(request), request.body); response.status(201).json({ ok: true }); }
 export async function supplierContactUpdate(request: Request, response: Response) { await catalog.updateSupplierContact(me(request), idParam(request), request.body); response.json({ ok: true }); }
@@ -50,7 +47,6 @@ export async function reportExport(request: Request, response: Response) {
   response.setHeader("Content-Disposition", `attachment; filename="${file.filename}"`);
   response.send(file.csv);
 }
-export async function paymentCreate(request: Request, response: Response) { await reports.addPayment(me(request), request.body); response.status(201).json({ ok: true }); }
 export async function notificationRecent(request: Request, response: Response) { response.json(await notification.recentNotifications(me(request).id)); }
 export async function notificationList(request: Request, response: Response) { response.json(await notification.allNotifications(me(request).id)); }
 export async function notificationRead(request: Request, response: Response) { await orders.markNotificationsRead(me(request), request.body?.ids); response.json({ ok: true }); }

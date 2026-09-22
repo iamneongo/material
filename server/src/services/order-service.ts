@@ -1,5 +1,5 @@
 import { alias } from "drizzle-orm/pg-core";
-import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../db/index.js";
 import {
   activityLog, materials, notifications, orderItems, orders,
@@ -9,26 +9,23 @@ import { toNumber } from "../lib/utils.js";
 import { logActivity } from "./activity-service.js";
 
 type CurrentUser = { id: string; name: string; role: UserRole };
-type NewOrder = { projectId: number; supplierId?: string | null; supplierContactId?: number | null; note?: string | null; items?: { materialId: number; qty: number; unitPrice: number }[] };
+type NewOrder = { projectId: number; supplierContactId?: number | null; note?: string | null; items?: { materialId: number; qty: number; unitPrice: number }[] };
 
 const creator = alias(user, "creator");
-const supplier = alias(user, "supplier");
 
 function scopedOrderWhere(me: CurrentUser) {
   if (me.role === "site") return eq(orders.createdById, me.id);
-  if (me.role === "supplier") return or(eq(orders.supplierId, me.id), isNull(orders.supplierId));
   return undefined;
 }
 
 export async function listOrders(me: CurrentUser) {
   return db.select({
     id: orders.id, code: orders.code, projectName: projects.name,
-    creatorName: creator.name, supplierName: supplier.name,
+    creatorName: creator.name,
     createdAt: orders.createdAt, status: orders.status, total: orders.total,
   }).from(orders)
     .innerJoin(projects, eq(orders.projectId, projects.id))
     .innerJoin(creator, eq(orders.createdById, creator.id))
-    .leftJoin(supplier, eq(orders.supplierId, supplier.id))
     .where(scopedOrderWhere(me)).orderBy(desc(orders.createdAt));
 }
 
@@ -37,10 +34,10 @@ export async function getOrder(orderId: number) {
     id: orders.id, code: orders.code, status: orders.status, note: orders.note,
     total: orders.total, createdAt: orders.createdAt, approvedAt: orders.approvedAt,
     deliveredAt: orders.deliveredAt, rejectedReason: orders.rejectedReason,
-    projectName: projects.name, creatorName: creator.name, supplierName: supplier.name, supplierContactName: supplierContacts.name, supplierContactPhone: supplierContacts.phone,
+    projectName: projects.name, creatorName: creator.name, supplierContactName: supplierContacts.name, supplierContactPhone: supplierContacts.phone,
   }).from(orders).innerJoin(projects, eq(orders.projectId, projects.id))
     .innerJoin(creator, eq(orders.createdById, creator.id))
-    .leftJoin(supplier, eq(orders.supplierId, supplier.id)).leftJoin(supplierContacts, eq(orders.supplierContactId, supplierContacts.id))
+    .leftJoin(supplierContacts, eq(orders.supplierContactId, supplierContacts.id))
     .where(eq(orders.id, orderId));
   if (!order) return null;
   const [items, timeline] = await Promise.all([
@@ -51,16 +48,11 @@ export async function getOrder(orderId: number) {
     db.select().from(activityLog).where(and(eq(activityLog.entityType, "order"), eq(activityLog.entityId, orderId)))
       .orderBy(asc(activityLog.createdAt)),
   ]);
-  return { ...order, supplierName: order.supplierName ?? "Tất cả cửa hàng", supplierContact: order.supplierContactName ? { name: order.supplierContactName, phone: order.supplierContactPhone } : null, items, timeline };
+  return { ...order, supplierContact: order.supplierContactName ? { name: order.supplierContactName, phone: order.supplierContactPhone } : null, items, timeline };
 }
 
 export async function getApprovalOrders() {
   return listActionOrders(eq(orders.status, "pending"), orders.createdAt);
-}
-
-export async function getDeliveryOrders(me: CurrentUser) {
-  const scope = me.role === "supplier" ? or(eq(orders.supplierId, me.id), isNull(orders.supplierId)) : undefined;
-  return listActionOrders(and(eq(orders.status, "approved"), scope), orders.approvedAt);
 }
 
 async function listActionOrders(where: ReturnType<typeof eq> | undefined, orderColumn: typeof orders.createdAt | typeof orders.approvedAt) {
@@ -94,7 +86,7 @@ export async function createOrder(me: CurrentUser, input: NewOrder) {
   let newOrderId = 0;
   await db.transaction(async (tx) => {
     const [inserted] = await tx.insert(orders).values({ code: "TMP", projectId: input.projectId,
-      supplierId: input.supplierId || null, supplierContactId, createdById: me.id, status: "pending", note: input.note || null,
+      supplierId: null, supplierContactId, createdById: me.id, status: "pending", note: input.note || null,
       total: total.toFixed(2) }).returning({ id: orders.id });
     newOrderId = inserted.id;
     const code = `DH${String(inserted.id).padStart(5, "0")}`;
@@ -103,9 +95,8 @@ export async function createOrder(me: CurrentUser, input: NewOrder) {
       qty: toNumber(item.qty).toFixed(3), unitPrice: toNumber(item.unitPrice).toFixed(2),
       amount: (toNumber(item.qty) * toNumber(item.unitPrice)).toFixed(2) })));
     const admins = await tx.select({ id: user.id }).from(user).where(eq(user.role, "admin"));
-    const suppliers = input.supplierId ? [{ id: input.supplierId }] : await tx.select({ id: user.id }).from(user).where(eq(user.role, "supplier"));
     const [project] = await tx.select({ name: projects.name }).from(projects).where(eq(projects.id, input.projectId));
-    const recipients = Array.from(new Set([...admins, ...suppliers].map((row) => row.id)));
+    const recipients = admins.map((row) => row.id);
     if (recipients.length) await tx.insert(notifications).values(recipients.map((userId) => ({ userId,
       title: `Đơn đặt vật tư mới ${code}`, message: `${me.name} vừa tạo đơn ${code} cho công trình "${project?.name ?? ""}".`, orderId: inserted.id })));
     await logActivity(tx, { actorId: me.id, actorName: me.name, action: "order.created", entityType: "order", entityId: inserted.id,
@@ -127,10 +118,9 @@ export async function approveOrder(me: CurrentUser, orderId: number) {
         target: [projectMaterialActual.projectId, projectMaterialActual.materialId],
         set: { qty: sql`${projectMaterialActual.qty} + ${item.qty}`, amount: sql`${projectMaterialActual.amount} + ${item.amount}`, updatedAt: new Date() },
       });
-    const suppliers = order.supplierId ? [{ id: order.supplierId }] : await tx.select({ id: user.id }).from(user).where(eq(user.role, "supplier"));
-    const recipients = Array.from(new Set([order.createdById, ...suppliers.map((row) => row.id)]));
+    const recipients = [order.createdById];
     await tx.insert(notifications).values(recipients.map((userId) => ({ userId, title: `Đơn ${order.code} đã được duyệt`,
-      message: userId === order.createdById ? `Đơn ${order.code} của bạn đã được duyệt.` : `Đơn ${order.code} đã được duyệt, vui lòng chuẩn bị giao hàng.`, orderId })));
+      message: `Đơn ${order.code} của bạn đã được duyệt.`, orderId })));
     await logActivity(tx, { actorId: me.id, actorName: me.name, action: "order.approved", entityType: "order", entityId: orderId,
       summary: `${me.name} đã duyệt đơn ${order.code}. Số liệu được phân bổ vào bảng tổng hợp thực tế.` });
   });
@@ -147,20 +137,6 @@ export async function rejectOrder(me: CurrentUser, orderId: number, reason: stri
       message: `Đơn ${order.code} đã bị từ chối${reason ? `: ${reason}` : "."}`, orderId });
     await logActivity(tx, { actorId: me.id, actorName: me.name, action: "order.rejected", entityType: "order", entityId: orderId,
       summary: `${me.name} đã từ chối đơn ${order.code}${reason ? `: ${reason}` : "."}` });
-  });
-}
-
-export async function deliverOrder(me: CurrentUser, orderId: number) {
-  if (!(["supplier", "admin"] as UserRole[]).includes(me.role)) throw new Error("Chỉ cửa hàng mới được đánh dấu đã giao.");
-  await db.transaction(async (tx) => {
-    const [order] = await tx.select().from(orders).where(eq(orders.id, orderId));
-    if (!order) throw new Error("Không tìm thấy đơn.");
-    if (order.status !== "approved") throw new Error("Đơn chưa được duyệt hoặc đã giao.");
-    await tx.update(orders).set({ status: "delivered", deliveredAt: new Date() }).where(eq(orders.id, orderId));
-    const admins = await tx.select({ id: user.id }).from(user).where(eq(user.role, "admin"));
-    const recipients = Array.from(new Set([order.createdById, ...admins.map((row) => row.id)]));
-    await tx.insert(notifications).values(recipients.map((userId) => ({ userId, title: `Đơn ${order.code} đã giao`, message: `Đơn ${order.code} đã được cửa hàng giao hàng.`, orderId })));
-    await logActivity(tx, { actorId: me.id, actorName: me.name, action: "order.delivered", entityType: "order", entityId: orderId, summary: `${me.name} đã giao đơn ${order.code}.` });
   });
 }
 
