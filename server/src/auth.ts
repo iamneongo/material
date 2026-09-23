@@ -5,6 +5,18 @@ import { config } from "./config.js";
 import { db } from "./db/index.js";
 import * as schema from "./db/schema.js";
 
+const googleSocialProvider =
+  config.googleClientId && config.googleClientSecret
+    ? {
+        google: {
+          clientId: config.googleClientId,
+          clientSecret: config.googleClientSecret,
+          disableSignUp: !config.googleAuthAllowSignUp,
+          ...(config.googleHostedDomain ? { hd: config.googleHostedDomain } : {}),
+        },
+      }
+    : undefined;
+
 export const auth = betterAuth({
   baseURL: config.authUrl,
   secret: config.authSecret,
@@ -21,6 +33,7 @@ export const auth = betterAuth({
     schema: { user: schema.user, session: schema.session, account: schema.account, verification: schema.verification },
   }),
   emailAndPassword: { enabled: true, requireEmailVerification: false, minPasswordLength: 6 },
+  ...(googleSocialProvider ? { socialProviders: googleSocialProvider } : {}),
   user: {
     additionalFields: {
       role: { type: "string", required: false, defaultValue: "site", input: false },

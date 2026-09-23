@@ -11,6 +11,16 @@ function numberFromEnv(value: string | undefined, fallback: number) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function optionalStringFromEnv(value: string | undefined) {
+  const trimmed = value?.trim();
+  return trimmed || undefined;
+}
+
+function booleanFromEnv(value: string | undefined, fallback = false) {
+  if (value === undefined) return fallback;
+  return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
+}
+
 export const config = {
   port: numberFromEnv(process.env.PORT, 4000),
   nodeEnv: process.env.NODE_ENV ?? "development",
@@ -18,6 +28,10 @@ export const config = {
   authSecret: process.env.BETTER_AUTH_SECRET,
   authUrl: process.env.BETTER_AUTH_URL ?? "http://localhost:4000",
   appScheme: process.env.APP_SCHEME ?? "materialapp",
+  googleClientId: optionalStringFromEnv(process.env.GOOGLE_CLIENT_ID),
+  googleClientSecret: optionalStringFromEnv(process.env.GOOGLE_CLIENT_SECRET),
+  googleHostedDomain: optionalStringFromEnv(process.env.GOOGLE_HOSTED_DOMAIN),
+  googleAuthAllowSignUp: booleanFromEnv(process.env.GOOGLE_AUTH_ALLOW_SIGN_UP),
   corsOrigins: (process.env.CORS_ORIGINS ?? "http://localhost:8081")
     .split(",")
     .map((value) => value.trim())
