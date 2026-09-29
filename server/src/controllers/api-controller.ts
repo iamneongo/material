@@ -4,15 +4,16 @@ import * as catalog from "../services/catalog-service.js";
 import * as orders from "../services/order-service.js";
 import * as reports from "../services/report-service.js";
 import * as notification from "../services/notification-service.js";
+import * as members from "../services/member-service.js";
 
 const idParam = (request: Request) => Number(request.params.id);
 const me = (request: Request) => request.currentUser!;
 
 export async function session(request: Request, response: Response) { response.json({ user: me(request) }); }
-export async function dashboard(_request: Request, response: Response) { response.json(await reports.getDashboard()); }
+export async function dashboard(request: Request, response: Response) { response.json(await reports.getDashboard(me(request))); }
 export async function orderList(request: Request, response: Response) { response.json(await orders.listOrders(me(request))); }
 export async function orderDetail(request: Request, response: Response) {
-  const value = await orders.getOrder(idParam(request));
+  const value = await orders.getOrder(me(request), idParam(request));
   if (!value) { response.status(404).json({ error: "Không tìm thấy đơn." }); return; }
   response.json(value);
 }
@@ -26,7 +27,7 @@ export async function projectList(_request: Request, response: Response) { respo
 export async function projectCreate(request: Request, response: Response) { await catalog.createProject(me(request), request.body); response.status(201).json({ ok: true }); }
 export async function projectUpdate(request: Request, response: Response) { await catalog.updateProject(me(request), idParam(request), request.body); response.json({ ok: true }); }
 export async function projectDelete(request: Request, response: Response) { await catalog.deleteProject(me(request), idParam(request)); response.json({ ok: true }); }
-export async function projectSummary(request: Request, response: Response) { response.json(await reports.getProjectSummary(idParam(request))); }
+export async function projectSummary(request: Request, response: Response) { response.json(await reports.getProjectSummary(me(request), idParam(request))); }
 export async function materialList(_request: Request, response: Response) { response.json(await catalog.listMaterials()); }
 export async function materialCreate(request: Request, response: Response) { await catalog.createMaterial(me(request), request.body); response.status(201).json({ ok: true }); }
 export async function materialUpdate(request: Request, response: Response) { await catalog.updateMaterial(me(request), idParam(request), request.body); response.json({ ok: true }); }
@@ -51,3 +52,7 @@ export async function notificationRecent(request: Request, response: Response) {
 export async function notificationList(request: Request, response: Response) { response.json(await notification.allNotifications(me(request).id)); }
 export async function notificationRead(request: Request, response: Response) { await orders.markNotificationsRead(me(request), request.body?.ids); response.json({ ok: true }); }
 export async function activityList(_request: Request, response: Response) { response.json(await listActivity()); }
+export async function memberList(_request: Request, response: Response) { response.json(await members.listMembers()); }
+export async function memberInvite(request: Request, response: Response) { response.status(201).json(await members.inviteMember(me(request), request.body)); }
+export async function memberUpdate(request: Request, response: Response) { await members.updateMember(me(request), String(request.params.id), request.body); response.json({ ok: true }); }
+export async function memberDelete(request: Request, response: Response) { await members.deleteMember(me(request), String(request.params.id)); response.json({ ok: true }); }

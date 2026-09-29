@@ -39,6 +39,20 @@ export const auth = betterAuth({
       role: { type: "string", required: false, defaultValue: "site", input: false },
     },
   },
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (newUser) => ({
+          data: {
+            ...newUser,
+            ...(config.bootstrapAdminEmails.includes(newUser.email.trim().toLowerCase())
+              ? { role: "admin" }
+              : {}),
+          },
+        }),
+      },
+    },
+  },
   session: { expiresIn: 60 * 60 * 24 * 7, updateAge: 60 * 60 * 24 },
   plugins: [expo()],
 });

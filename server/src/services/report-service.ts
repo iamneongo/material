@@ -1,8 +1,10 @@
 import { alias } from "drizzle-orm/pg-core";
 import { and, asc, count, desc, eq, gte, lt, or, sql } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { budgets, materials, orderItems, orders, projectMaterialActual, projectSupplierContacts, projects, supplierContacts, user } from "../db/schema.js";
+import { budgets, materials, orderItems, orders, projectMaterialActual, projectSupplierContacts, projects, supplierContacts, user, type UserRole } from "../db/schema.js";
 import { monthRange, toNumber } from "../lib/utils.js";
+
+type CurrentUser = { id: string; role: UserRole };
 
 export async function materialCosts(month?: string, projectId?: number) {
   const range = monthRange(month);
@@ -53,13 +55,14 @@ export async function getReconcile(projectId?: number) {
   return { projects: projectRows, selectedId, rows, totalBudget, totalActual, totalDiff: totalActual - totalBudget };
 }
 
-export async function getProjectSummary(projectId: number) {
+export async function getProjectSummary(me: CurrentUser, projectId: number) {
   const [project] = await db.select().from(projects).where(eq(projects.id, projectId));
   if (!project) throw new Error("Không tìm thấy công trình.");
+  const ownOrderScope = me.role === "site" ? eq(orders.createdById, me.id) : undefined;
   const [reconcile, statusRows, recentOrders, linked] = await Promise.all([
     getReconcile(projectId),
-    db.select({ status: orders.status, value: count() }).from(orders).where(eq(orders.projectId, projectId)).groupBy(orders.status),
-    db.select({ id: orders.id, code: orders.code, status: orders.status, total: orders.total, createdAt: orders.createdAt }).from(orders).where(eq(orders.projectId, projectId)).orderBy(desc(orders.createdAt)).limit(8),
+    db.select({ status: orders.status, value: count() }).from(orders).where(ownOrderScope ? and(eq(orders.projectId, projectId), ownOrderScope) : eq(orders.projectId, projectId)).groupBy(orders.status),
+    db.select({ id: orders.id, code: orders.code, status: orders.status, total: orders.total, createdAt: orders.createdAt }).from(orders).where(ownOrderScope ? and(eq(orders.projectId, projectId), ownOrderScope) : eq(orders.projectId, projectId)).orderBy(desc(orders.createdAt)).limit(8),
     db.select({ id: supplierContacts.id, name: supplierContacts.name, phone: supplierContacts.phone }).from(projectSupplierContacts).innerJoin(supplierContacts, eq(projectSupplierContacts.supplierContactId, supplierContacts.id)).where(eq(projectSupplierContacts.projectId, projectId)),
   ]);
   const defaultSupplier = linked.find((item) => item.id === project.defaultSupplierContactId) ?? null;
@@ -67,19 +70,26 @@ export async function getProjectSummary(projectId: number) {
     neededMaterials: reconcile.rows.filter((row) => row.budgetQty > row.actualQty).map((row) => ({ ...row, remainingQty: row.budgetQty - row.actualQty })) };
 }
 
-export async function getDashboard() {
+export async function getDashboard(me: CurrentUser) {
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const ownOrderScope = me.role === "site" ? eq(orders.createdById, me.id) : undefined;
+  const pendingWhere = ownOrderScope ? and(eq(orders.status, "pending"), ownOrderScope) : eq(orders.status, "pending");
+  const approvedWhere = ownOrderScope ? and(eq(orders.status, "approved"), ownOrderScope) : eq(orders.status, "approved");
+  const approvedMonthWhere = ownOrderScope
+    ? and(or(eq(orders.status, "approved"), eq(orders.status, "delivered")), gte(sql`coalesce(${orders.approvedAt}, ${orders.deliveredAt})`, monthStart), ownOrderScope)
+    : and(or(eq(orders.status, "approved"), eq(orders.status, "delivered")), gte(sql`coalesce(${orders.approvedAt}, ${orders.deliveredAt})`, monthStart));
   const [[projectCount], [pendingCount], [approvedCount], [approvedMonth], [materialCount], statusRows] = await Promise.all([
-    db.select({ value: count() }).from(projects), db.select({ value: count() }).from(orders).where(eq(orders.status, "pending")),
-    db.select({ value: count() }).from(orders).where(eq(orders.status, "approved")),
-    db.select({ value: sql<string>`coalesce(sum(${orders.total}), 0)` }).from(orders).where(and(or(eq(orders.status, "approved"), eq(orders.status, "delivered")), gte(sql`coalesce(${orders.approvedAt}, ${orders.deliveredAt})`, monthStart))),
+    db.select({ value: count() }).from(projects), db.select({ value: count() }).from(orders).where(pendingWhere),
+    db.select({ value: count() }).from(orders).where(approvedWhere),
+    db.select({ value: sql<string>`coalesce(sum(${orders.total}), 0)` }).from(orders).where(approvedMonthWhere),
     db.select({ value: count() }).from(materials),
-    db.select({ status: orders.status, value: count() }).from(orders).groupBy(orders.status),
+    db.select({ status: orders.status, value: count() }).from(orders).where(ownOrderScope).groupBy(orders.status),
   ]);
   const createdBy = alias(user, "dashboard_creator");
   const recentOrders = await db.select({ id: orders.id, code: orders.code, status: orders.status, total: orders.total,
     createdAt: orders.createdAt, projectName: projects.name, creatorName: createdBy.name }).from(orders)
     .innerJoin(projects, eq(orders.projectId, projects.id)).innerJoin(createdBy, eq(orders.createdById, createdBy.id))
+    .where(ownOrderScope)
     .orderBy(desc(orders.createdAt)).limit(6);
   return { projectCount: projectCount.value, pendingCount: pendingCount.value, approvedCount: approvedCount.value,
     materialCount: materialCount.value, approvedMonth: toNumber(approvedMonth.value), statusRows, recentOrders };

@@ -1,10 +1,17 @@
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
+import { config } from "../config.js";
 import { db } from "../db/index.js";
 import { user } from "../db/schema.js";
 
 /** One-time, idempotent compatibility migration for the retired director role. */
 export async function mergeDirectorRoleIntoAdmin() {
   await db.update(user).set({ role: "admin" }).where(eq(user.role, "director"));
+  if (config.bootstrapAdminEmails.length > 0) {
+    await db
+      .update(user)
+      .set({ role: "admin", updatedAt: new Date() })
+      .where(inArray(user.email, config.bootstrapAdminEmails));
+  }
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS supplier_contacts (
       id SERIAL PRIMARY KEY, name TEXT NOT NULL, phone TEXT NOT NULL UNIQUE,

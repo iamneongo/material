@@ -10,7 +10,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-export const roleEnum = pgEnum("role", ["admin", "director", "site", "supplier"]);
+export const roleEnum = pgEnum("role", ["admin", "director", "site", "supplier", "accountant"]);
 export const projectStatusEnum = pgEnum("project_status", ["active", "paused", "completed"]);
 export const orderStatusEnum = pgEnum("order_status", ["pending", "approved", "rejected", "delivered"]);
 

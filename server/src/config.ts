@@ -21,6 +21,11 @@ function booleanFromEnv(value: string | undefined, fallback = false) {
   return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
 }
 
+function emailListFromEnv(value: string | undefined, fallback: string[] = []) {
+  const source = value === undefined ? fallback : value.split(",");
+  return [...new Set(source.map((email) => email.trim().toLowerCase()).filter(Boolean))];
+}
+
 export const config = {
   port: numberFromEnv(process.env.PORT, 4000),
   nodeEnv: process.env.NODE_ENV ?? "development",
@@ -32,6 +37,10 @@ export const config = {
   googleClientSecret: optionalStringFromEnv(process.env.GOOGLE_CLIENT_SECRET),
   googleHostedDomain: optionalStringFromEnv(process.env.GOOGLE_HOSTED_DOMAIN),
   googleAuthAllowSignUp: booleanFromEnv(process.env.GOOGLE_AUTH_ALLOW_SIGN_UP),
+  bootstrapAdminEmails: emailListFromEnv(process.env.BOOTSTRAP_ADMIN_EMAILS, ["nttantts@gmail.com"]),
+  resendApiKey: optionalStringFromEnv(process.env.RESEND_API_KEY),
+  resendFromEmail: optionalStringFromEnv(process.env.RESEND_FROM_EMAIL) ?? "Material App <onboarding@resend.dev>",
+  appUrl: optionalStringFromEnv(process.env.APP_URL) ?? process.env.BETTER_AUTH_URL ?? "https://material-api-4fsd6i-64cac0-103-72-98-129.sslip.io",
   corsOrigins: (process.env.CORS_ORIGINS ?? "http://localhost:8081")
     .split(",")
     .map((value) => value.trim())

@@ -1,10 +1,12 @@
 import { createApp } from "./app.js";
 import { config, requireServerConfig } from "./config.js";
+import { ensureRuntimeDatabaseCompatibility } from "./services/db-migration-service.js";
 import { mergeDirectorRoleIntoAdmin } from "./services/role-migration.js";
 
 requireServerConfig();
 
 async function start() {
+  await ensureRuntimeDatabaseCompatibility();
   await mergeDirectorRoleIntoAdmin();
   createApp().listen(config.port, () => {
     console.log(`Material API đang chạy tại http://localhost:${config.port}`);
